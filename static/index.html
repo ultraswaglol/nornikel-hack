@@ -1,0 +1,332 @@
+<!-- static/index.html -->
+<!DOCTYPE html>
+<html lang="ru" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Норникель - R&D Карта Знаний</title>
+    <!-- Tailwind CSS для стилизации -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vis.js для рендеринга интерактивного графа -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/vis-network.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" />
+    <style>
+        #network-container {
+            width: 100%;
+            height: 500px;
+            background-color: #0f172a;
+            border-radius: 0.75rem;
+            border: 1px solid #1e293b;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col font-sans">
+
+    <!-- Верхний брендированный заголовок -->
+    <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex items-center justify-between">
+        <div>
+            <h1 class="text-xl font-bold tracking-wider text-sky-400">НОРНИКЕЛЬ</h1>
+            <p class="text-xs text-slate-400 uppercase font-semibold">R&D Карта Знаний</p>
+        </div>
+        <div class="flex items-center space-x-4">
+            <span class="text-sm text-slate-400">Роль доступа:</span>
+            <select id="user-role" class="bg-slate-800 border border-slate-700 rounded px-3 py-1 text-sm focus:outline-none focus:border-sky-500">
+                <option value="Исследователь R&D (Public)">Исследователь R&D (Public)</option>
+                <option value="Аналитик (Internal)">Аналитик (Internal)</option>
+                <option value="Главный инженер (Confidential)">Главный инженер (Confidential)</option>
+            </select>
+        </div>
+    </header>
+
+    <!-- Основной контент с боковой панелью -->
+    <div class="flex-1 flex overflow-hidden">
+        <!-- Навигация -->
+        <aside class="w-64 bg-slate-900 border-r border-slate-800 p-4 flex flex-col space-y-2">
+            <button onclick="switchTab('search')" id="btn-search" class="tab-btn w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium bg-sky-600 text-white">
+                Поиск и GraphRAG
+            </button>
+            <button onclick="switchTab('import')" id="btn-import" class="tab-btn w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800">
+                Импорт документов
+            </button>
+            <button onclick="switchTab('dashboard')" id="btn-dashboard" class="tab-btn w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800">
+                Аналитика и дашборды
+            </button>
+        </aside>
+
+        <!-- Рабочая область -->
+        <main class="flex-1 overflow-y-auto p-6 bg-slate-950">
+            
+            <!-- Таб 1: Поиск -->
+            <section id="tab-search" class="tab-content space-y-6">
+                <div class="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-md">
+                    <h2 class="text-lg font-semibold text-slate-200 mb-4">Интеллектуальный поиск по технологической базе</h2>
+                    <div class="flex space-x-3">
+                        <input type="text" id="search-input" placeholder="Введите технологический запрос, например: Оптимальная скорость циркуляции католита..." 
+                               class="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-sky-500">
+                        <button onclick="executeSearch()" class="bg-sky-600 hover:bg-sky-500 text-white font-medium px-6 py-3 rounded-lg text-sm transition">
+                            Поиск
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Блок результатов -->
+                <div id="results-panel" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-md flex flex-col">
+                        <h3 class="text-md font-semibold text-sky-400 mb-4">Аналитический ответ системы</h3>
+                        <div id="search-answer" class="text-sm text-slate-300 leading-relaxed whitespace-pre-line flex-1 overflow-y-auto max-h-[450px] pr-2"></div>
+                    </div>
+                    <div class="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-md">
+                        <h3 class="text-md font-semibold text-sky-400 mb-4">Локальный граф связей</h3>
+                        <div id="network-container"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Таб 2: Импорт -->
+            <section id="tab-import" class="tab-content hidden space-y-6">
+                <div class="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-md max-w-2xl">
+                    <h2 class="text-lg font-semibold text-slate-200 mb-4">Загрузка R&D документов в систему</h2>
+                    <form id="upload-form" onsubmit="handleUpload(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-sm text-slate-400 mb-1">Файл (PDF)</label>
+                            <input type="file" id="file-input" required class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm text-slate-400 mb-1">Уровень секретности</label>
+                                <select id="upload-security" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none">
+                                    <option value="PUBLIC">PUBLIC</option>
+                                    <option value="INTERNAL">INTERNAL</option>
+                                    <option value="CONFIDENTIAL">CONFIDENTIAL</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm text-slate-400 mb-1">Уровень доверия</label>
+                                <select id="upload-trust" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none">
+                                    <option value="A">Класс A (Рецензируемый)</option>
+                                    <option value="B">Класс B (Технический отчет)</option>
+                                    <option value="C">Класс C (Прочие сведения)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-medium py-3 rounded-lg text-sm transition">
+                            Начать обработку и индексацию
+                        </button>
+                    </form>
+                    <div id="upload-status" class="mt-4 text-sm font-medium"></div>
+                </div>
+            </section>
+
+            <!-- Таб 3: Дашборд -->
+            <section id="tab-dashboard" class="tab-content hidden space-y-6">
+                <!-- Карточки метрик -->
+                <div class="grid grid-cols-3 gap-6">
+                    <div class="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-md">
+                        <div class="text-sm text-slate-400">Всего сущностей</div>
+                        <div id="metric-nodes" class="text-3xl font-bold text-sky-400 mt-2">-</div>
+                    </div>
+                    <div class="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-md">
+                        <div class="text-sm text-slate-400">Связей в графе</div>
+                        <div id="metric-edges" class="text-3xl font-bold text-emerald-400 mt-2">-</div>
+                    </div>
+                    <div class="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-md">
+                        <div class="text-sm text-slate-400">Обработано отчетов</div>
+                        <div id="metric-pubs" class="text-3xl font-bold text-purple-400 mt-2">-</div>
+                    </div>
+                </div>
+
+                <!-- Анализ противоречий -->
+                <div class="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-md">
+                    <h3 class="text-md font-semibold text-slate-200 mb-4">Выявленные противоречия в параметрах</h3>
+                    <div id="conflicts-container" class="space-y-3">
+                        <p class="text-sm text-slate-400">Вычисление противоречий...</p>
+                    </div>
+                </div>
+
+                <!-- Сравнительный анализ -->
+                <div class="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-md">
+                    <h3 class="text-md font-semibold text-slate-200 mb-4">Сравнительный анализ технологий</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-800 text-sm text-left">
+                            <thead class="bg-slate-950 text-slate-400">
+                                <tr>
+                                    <th class="px-4 py-3 font-medium">Процесс</th>
+                                    <th class="px-4 py-3 font-medium">Источник</th>
+                                    <th class="px-4 py-3 font-medium">Параметр</th>
+                                    <th class="px-4 py-3 font-medium">Значение</th>
+                                </tr>
+                            </thead>
+                            <tbody id="compare-table-body" class="divide-y divide-slate-800">
+                                <tr>
+                                    <td colspan="4" class="px-4 py-4 text-center text-slate-500">Загрузка данных...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Клиентский скрипт взаимодействия -->
+    <script>
+        const API_URL = window.location.origin;
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('bg-sky-600', 'text-white');
+                el.classList.add('text-slate-400', 'hover:bg-slate-800');
+            });
+
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`btn-${tabName}`);
+            activeBtn.classList.remove('text-slate-400', 'hover:bg-slate-800');
+            activeBtn.classList.add('bg-sky-600', 'text-white');
+
+            if (tabName === 'dashboard') {
+                loadDashboardData();
+            }
+        }
+
+        async function executeSearch() {
+            const query = document.getElementById('search-input').value;
+            const role = document.getElementById('user-role').value;
+            if (!query.trim()) return;
+
+            const resultsPanel = document.getElementById('results-panel');
+            const answerDiv = document.getElementById('search-answer');
+            
+            resultsPanel.classList.remove('hidden');
+            answerDiv.innerHTML = "Выполняется интеллектуальный анализ по графу знаний...";
+
+            try {
+                const response = await fetch(`${API_URL}/api/search`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: query, user_role: role })
+                });
+                const data = await response.json();
+
+                answerDiv.innerHTML = data.answer;
+                renderGraph(data.graph);
+            } catch (err) {
+                answerDiv.innerHTML = "Произошла ошибка при выполнении поискового запроса.";
+                console.error(err);
+            }
+        }
+
+        function renderGraph(graphData) {
+            const container = document.getElementById('network-container');
+            const data = {
+                nodes: new vis.DataSet(graphData.nodes),
+                edges: new vis.DataSet(graphData.edges)
+            };
+            const options = {
+                nodes: {
+                    shape: 'dot',
+                    size: 16,
+                    font: { color: '#f1f5f9', size: 12 }
+                },
+                edges: {
+                    color: { color: '#475569', highlight: '#38bdf8' },
+                    arrows: 'to',
+                    smooth: { enabled: true, type: 'continuous' }
+                },
+                physics: {
+                    enabled: true,
+                    stabilization: { iterations: 150 }
+                }
+            };
+            new vis.Network(container, data, options);
+        }
+
+        async function handleUpload(event) {
+            event.preventDefault();
+            const fileInput = document.getElementById('file-input');
+            const statusDiv = document.getElementById('upload-status');
+            const security = document.getElementById('upload-security').value;
+            const trust = document.getElementById('upload-trust').value;
+
+            if (!fileInput.files.length) return;
+
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+            formData.append("security_level", security);
+            formData.append("trust_level", trust);
+
+            statusDiv.className = "mt-4 text-sm text-sky-400 font-medium";
+            statusDiv.innerText = "Файл загружен. Идет обработка, извлечение сущностей и генерация эмбеддингов...";
+
+            try {
+                const response = await fetch(`${API_URL}/api/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                statusDiv.className = "mt-4 text-sm text-emerald-400 font-medium";
+                statusDiv.innerText = `Документ успешно обработан. Найдено и проиндексировано ${data.chunks_count} фрагментов текста.`;
+                fileInput.value = "";
+            } catch (err) {
+                statusDiv.className = "mt-4 text-sm text-rose-400 font-medium";
+                statusDiv.innerText = "Ошибка при загрузке или индексации файла.";
+                console.error(err);
+            }
+        }
+
+        async function loadDashboardData() {
+            try {
+                const response = await fetch(`${API_URL}/api/dashboard`);
+                const data = await response.json();
+
+                // Обновление метрик
+                document.getElementById('metric-nodes').innerText = data.metrics.nodes;
+                document.getElementById('metric-edges').innerText = data.metrics.edges;
+                document.getElementById('metric-pubs').innerText = data.metrics.publications;
+
+                // Отрисовка противоречий
+                const conflictsContainer = document.getElementById('conflicts-container');
+                conflictsContainer.innerHTML = "";
+                if (data.conflicts.length === 0) {
+                    conflictsContainer.innerHTML = "<p class='text-sm text-slate-500'>Противоречий в базе знаний не обнаружено.</p>";
+                } else {
+                    data.conflicts.forEach(c => {
+                        const item = document.createElement('div');
+                        item.className = "bg-slate-950 p-4 rounded-lg border border-slate-800 text-sm space-y-2";
+                        item.innerHTML = `
+                            <div class="text-rose-400 font-semibold">Противоречие в процессе: ${c.ProcessName} (${c.PropertyName})</div>
+                            <div class="grid grid-cols-2 gap-4 text-slate-300 text-xs">
+                                <div><strong>Источник A:</strong> ${c.SourceA}<br>Значение: ${c.ValueA} ${c.UnitA}</div>
+                                <div><strong>Источник B:</strong> ${c.SourceB}<br>Значение: ${c.ValueB} ${c.UnitB}</div>
+                            </div>
+                        `;
+                        conflictsContainer.appendChild(item);
+                    });
+                }
+
+                // Заполнение таблицы сравнения
+                const tableBody = document.getElementById('compare-table-body');
+                tableBody.innerHTML = "";
+                if (data.compare.length === 0) {
+                    tableBody.innerHTML = "<tr><td colspan='4' class='px-4 py-4 text-center text-slate-500'>Нет доступных данных для сравнения</td></tr>";
+                } else {
+                    data.compare.forEach(row => {
+                        const tr = document.createElement('tr');
+                        tr.className = "hover:bg-slate-900 transition";
+                        tr.innerHTML = `
+                            <td class="px-4 py-3 font-medium text-slate-300">${row.Process}</td>
+                            <td class="px-4 py-3 text-slate-400">${row.Source}</td>
+                            <td class="px-4 py-3 text-slate-400">${row.Parameter}</td>
+                            <td class="px-4 py-3 text-sky-400 font-semibold">${row.Value}</td>
+                        `;
+                        tableBody.appendChild(tr);
+                    });
+                }
+            } catch (err) {
+                console.error("Ошибка загрузки данных дашборда:", err);
+            }
+        }
+    </script>
+</body>
+</html>

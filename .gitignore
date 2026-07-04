@@ -1,0 +1,18 @@
+# Игнорируем виртуальное окружение
+venv/
+.venv/
+env/
+
+# Игнорируем секретные ключи доступа и логи безопасности
+.env
+processed_files_registry.json
+audit_security.log
+
+# Игнорируем временные файлы и кэш Python
+__pycache__/
+*.pyc
+temp_uploads/
+test_documents/
+temp_graph.html
+temp_graph_search.html
+.DS_Store
